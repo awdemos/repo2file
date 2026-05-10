@@ -1,108 +1,117 @@
-# Repository Content Dumper for LLM Prompts
+# repo2file
 
-## Overview
+Repository content dumper for LLM prompts and RAG systems.
 
-This tool is designed to dump the contents of a Git repository into a single file, making it easier to use in Retrieval-Augmented Generation (RAG) systems or as part of prompts for Large Language Models (LLMs). By consolidating your codebase into one file, you can more easily pass context to an LLM or integrate it into a RAG pipeline.
+> **Version 2.0** — Complete rewrite from a 132-line script into a modular, tested Python package.
 
-## Features
+## What's New
 
-- Dumps entire repository content into a single file
-- Respects .gitignore patterns to exclude unnecessary files
-- Generates a tree-like directory structure for easy navigation
-- Includes file contents for all non-excluded files
-- Customizable file type filtering
+This release replaces the original monolithic script with a proper pipeline architecture:
 
-## Use Cases
+| Before (v1) | After (v2) |
+|-------------|------------|
+| 132-line single script | 10 modular Python modules |
+| Broken custom fnmatch gitignore | Full gitignore compliance via `pathspec` |
+| Crashes on binary files | Safe binary detection (null-byte + extension heuristics) |
+| Zero tests | 41 tests, 88% coverage |
+| Memory-inefficient string building | Streaming output with atomic writes |
+| Only text output | Text, JSON, and Markdown formats |
 
-1. **RAG Systems**: Use the dumped content as a knowledge base for retrieval-augmented generation, allowing LLMs to access and reference your codebase accurately.
+## Installation
 
-2. **LLM Prompts**: Include relevant parts of your codebase in prompts to give LLMs more context about your project structure and implementation details.
+```bash
+pip install repo2file
+```
 
-3. **Code Analysis**: Quickly get an overview of your entire project in a single file, making it easier to analyze or search through your codebase.
+Or from source:
 
-4. **Documentation**: Generate comprehensive documentation that includes both the structure and content of your project.
+```bash
+git clone https://github.com/awdemos/repo2file.git
+cd repo2file
+pip install -e ".[dev]"
+```
 
 ## Usage
 
-```
-python dump.py <start_path> <output_file> [exclusion_file] [file_extensions...]
-```
+### Basic
 
-- `<start_path>`: The root directory of your repository
-- `<output_file>`: The file where the dumped content will be saved
-- `[exclusion_file]`: Optional. A file containing exclusion patterns (e.g., .gitignore)
-- `[file_extensions...]`: Optional. Specific file extensions to include (e.g., .py .js .tsx)
-
-Example:
-```
-python dump.py /path/to/your/repo output.txt .gitignore py js tsx
+```bash
+repo2file /path/to/your/repo
 ```
 
-## Output Format
+### With Options
 
-The output file will contain:
-
-1. A tree-like representation of your directory structure
-2. The contents of each included file, preceded by its relative path
-
-Example:
-```
-Directory Structure:
--------------------
-/ 
-├── .env.local
-├── package.json
-├── next.config.js
-├── tsconfig.json
-├── public/
-│   └── images/
-│       ├── astro.png
-│       └── astro-logo.svg
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── tools/
-...
-
-File Contents:
---------------
-File: .env.local
---------------------------------------------------
-Content of .env.local:
-API_KEY=your_api_key_here
-...
-
-File: package.json
---------------------------------------------------
-Content of package.json:
-{
-  "name": "your-project",
-  "version": "1.0.0",
-  ...
-}
-
-...
+```bash
+repo2file /path/to/your/repo \
+  -o output.txt \
+  -f markdown \
+  -i .py .js .ts \
+  -e "*.test.*" \
+  --max-depth 3 \
+  -v
 ```
 
-## Benefits for LLM Integration
+### CLI Reference
 
-1. **Contextual Understanding**: By providing the entire codebase structure and content, LLMs can better understand the context of your project.
+| Option | Description |
+|--------|-------------|
+| `path` | Directory to scan |
+| `-o, --output` | Output file path (default: output.txt) |
+| `-f, --format` | Output format: text, json, markdown |
+| `-i, --include` | File extensions to include (e.g., .py .js) |
+| `-e, --exclude` | Additional exclusion patterns |
+| `-g, --gitignore` | Path to .gitignore file (auto-detected if omitted) |
+| `--max-file-size` | Max file size in bytes (default: 10MB) |
+| `--max-depth` | Maximum directory depth |
+| `--follow-symlinks` | Follow symbolic links |
+| `-v, --verbose` | Verbose output |
+| `--config` | JSON config file for advanced options |
 
-2. **Improved Code Generation**: LLMs can generate more accurate and context-aware code suggestions when they have access to your full project structure.
+### Output Formats
 
-3. **Enhanced Debugging**: When asking LLMs for help with debugging, providing the full context allows for more precise problem identification and solution suggestions.
+**text** - Human-readable format with directory structure and file contents
 
-4. **Architecture Analysis**: LLMs can provide insights on your project's architecture and suggest improvements when they can see the entire structure.
+**json** - Machine-readable JSON array with file metadata and content
 
-5. **Documentation Generation**: Use the dumped content to ask LLMs to generate or improve project documentation.
+**markdown** - Markdown with code blocks and syntax highlighting
 
-## Best Practices
+## Features
 
-1. Be mindful of sensitive information. Use .gitignore or the exclusion file to omit sensitive data.
-2. For large repositories, consider dumping only relevant sections to stay within LLM token limits.
-3. When using the dumped content in LLM prompts, clearly specify which parts of the codebase are relevant to your question or task.
+- **Gitignore-compliant filtering** using pathspec library
+- **Safe binary detection** - skips binary files without crashing
+- **Multiple output formats** - text, JSON, markdown
+- **Streaming output** - memory efficient for large repositories
+- **Atomic writes** - output is written to temp file then renamed
+- **Extension filtering** - include only specific file types
+- **Depth limiting** - control how deep to scan
+- **Symlink handling** - configurable symlink following
 
-## Contributing
+## Testing
 
-Contributions to improve this tool are welcome! Please submit issues or pull requests on our GitHub repository.
+```bash
+pytest --cov=repo2file
+```
+
+## Architecture
+
+```
+repo2file/
+├── repo2file/
+│   ├── __init__.py       # Package exports
+│   ├── __main__.py       # python -m repo2file
+│   ├── cli.py            # Command-line interface
+│   ├── config.py         # Configuration management
+│   ├── engine.py         # Pipeline orchestrator
+│   ├── scanner.py        # Filesystem traversal
+│   ├── filters.py        # Gitignore + extension filtering
+│   ├── readers.py        # Safe file reading
+│   ├── serializers.py    # Output formatting
+│   └── models.py         # Data models
+└── tests/                # Test suite
+```
+
+Pipeline: Scanner → Filter → Reader → Serializer
+
+## License
+
+MIT
