@@ -23,7 +23,7 @@ dev = [
 repo2file = "repo2file.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/user/repo2file"
+Homepage = "https://github.com/awdemos/repo2file"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
